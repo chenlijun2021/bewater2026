@@ -14,22 +14,17 @@
             display: flex; justify-content: center; align-items: center; /* 使3:4画面居中 */
         }
         
-        /* 3:4 比例自适应容器 */
+        /* 自适应容器：改为由 JS 动态受控的长宽 */
         #canvasWrapper {
             position: relative;
-            aspect-ratio: 3 / 4;
             background-color: #f5f5f7;
             overflow: hidden;
-            transition: background-color 0.5s;
-            width: 100%; max-width: 100vw; max-height: 100vh;
-        }
-
-        /* 响应式调整，确保不管横屏竖屏都居中且保持比例 */
-        @media (min-aspect-ratio: 3/4) {
-            #canvasWrapper { height: 92vh; width: auto; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
-        }
-        @media (max-aspect-ratio: 3/4) {
-            #canvasWrapper { width: 92vw; height: auto; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); }
+            transition: background-color 0.5s, width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 16px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            width: 92vw; /* 默认宽度 */
+            height: 92vh; /* 默认高度 */
+            max-width: 100vw; max-height: 100vh;
         }
 
         canvas { display: block; width: 100%; height: 100%; }
@@ -150,6 +145,20 @@
     </div>
 
     <div class="divider"></div>
+    
+    <!-- 新增视口区域调整 -->
+    <div class="control-group row">
+        <div class="col">
+            <label class="control-label"><span>视口宽度 (vw)</span><span id="val-viewWidth">92</span></label>
+            <input type="range" id="viewWidth" min="30" max="100" step="1" value="92" oninput="updateSet('viewWidth', this.value)">
+        </div>
+        <div class="col">
+            <label class="control-label"><span>视口高度 (vh)</span><span id="val-viewHeight">92</span></label>
+            <input type="range" id="viewHeight" min="30" max="100" step="1" value="92" oninput="updateSet('viewHeight', this.value)">
+        </div>
+    </div>
+
+    <div class="divider"></div>
 
     <div class="control-group">
         <label class="control-label"><span>环境流速 (全局)</span><span id="val-flowSpeed">1.0</span></label>
@@ -228,6 +237,8 @@
 
     // 默认配置（用于复位）
     const defaultConfig = {
+        viewWidth: 92,
+        viewHeight: 92,
         bgColor: '#f5f5f7',
         flowSpeed: 1.0,
         centerSpeed: 3.0,
@@ -286,6 +297,16 @@
         
         // 特殊逻辑处理 (改为修改 Wrapper 颜色)
         if (key === 'bgColor') document.getElementById('canvasWrapper').style.backgroundColor = val;
+        
+        // 新增：视口尺寸动态调整，彻底摆脱写死的媒体查询比例
+        if (key === 'viewWidth' || key === 'viewHeight') {
+            const wrapper = document.getElementById('canvasWrapper');
+            wrapper.style.width = config.viewWidth + 'vw';
+            wrapper.style.height = config.viewHeight + 'vh';
+            // 延迟一点等待 CSS transition 属性跟上后重绘画布以防拉伸
+            setTimeout(resize, 60); 
+        }
+
         if (key === 'objShape') {
             document.getElementById('uploadWrapper').style.display = val === 'custom' ? 'block' : 'none';
         }
@@ -458,10 +479,16 @@
             
             ctx.globalAlpha = alpha;
             ctx.fillStyle = config.charColor;
-            ctx.font = `${config.charSize * this.sizeMod * p.scale}px "Times New Roman", Georgia, serif`;
-            ctx.fillText(this.char, p.x, p.y);
+            
+            // 【核心性能优化】彻底抛弃每帧修改 ctx.font，改为使用 GPU 加速的 ctx.scale 矩阵变换
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const scaleVal = (config.charSize * this.sizeMod * p.scale) / 40; // 40为全局渲染基准字体大小
+            ctx.scale(scaleVal, scaleVal);
+            ctx.fillText(this.char, 0, 0);
+            ctx.restore();
 
-            // 藕丝弹力连接 (贝塞尔曲线模拟弹性拉丝)
+            // 藕丝弹力连接 (极致精简为直线，大幅降低 CPU 负担)
             if (this.partnerId !== null && charPool[this.partnerId]) {
                 const partner = charPool[this.partnerId];
                 if (partner.proj.visible) {
@@ -471,8 +498,8 @@
                     if (distSq > 100 && distSq < 8000) { // 仅在中等距离连接
                         ctx.beginPath();
                         ctx.moveTo(p.x, p.y);
-                        // 曲线下垂模拟重力/弹性
-                        ctx.quadraticCurveTo(p.x + dx/2, p.y + dy/2 + 15 * p.scale, partner.proj.x, partner.proj.y);
+                        // 移除原有的贝塞尔曲线，改为极速直线绘制
+                        ctx.lineTo(partner.proj.x, partner.proj.y);
                         ctx.strokeStyle = config.charColor + '40'; // 带透明度的颜色
                         ctx.lineWidth = 0.5 * p.scale;
                         ctx.stroke();
@@ -550,10 +577,7 @@
             // 1. 发光层 (Alpha 堆叠，替代极慢的 shadowBlur)
             const drawSize = config.objSize * p.scale * (this.state === 'falling' ? 1.0 : this.scaleAnim); 
             
-            ctx.fillStyle = `rgba(${this.rgb}, 0.2)`;
-            ctx.beginPath(); ctx.arc(p.x, p.y, drawSize * 1.8, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = `rgba(${this.rgb}, 0.4)`;
-            ctx.beginPath(); ctx.arc(p.x, p.y, drawSize * 1.3, 0, Math.PI*2); ctx.fill();
+            // 【核心性能优化】移除原有的两层半透明发光圆弧(arc)，这些大面积半透明重绘极度消耗性能
 
             // 2. 实体绘制
             ctx.fillStyle = this.color;
@@ -561,19 +585,23 @@
             ctx.translate(p.x, p.y);
             ctx.rotate(this.rotAngle);
             
-            // 补充投掷物核心形状渲染 (修复原版中由于漏写导致的无实体bug)
+            // 补充投掷物核心形状渲染，同样使用 GPU 缩放代替修改字体
             if (this.shape === 'circle') {
                 ctx.beginPath(); ctx.arc(0, 0, drawSize * 0.8, 0, Math.PI*2); ctx.fill();
             } else if (this.shape === 'star') {
-                ctx.font = `${drawSize * 2}px Arial`; ctx.fillText('⭐', 0, 0);
+                const s = (drawSize * 2) / 40;
+                ctx.scale(s, s);
+                ctx.fillText('⭐', 0, 0);
             } else if (this.shape === 'heart') {
-                ctx.font = `${drawSize * 2}px Arial`; ctx.fillText('❤️', 0, 0);
+                const s = (drawSize * 2) / 40;
+                ctx.scale(s, s);
+                ctx.fillText('❤️', 0, 0);
             } else if (this.shape === 'custom' && customImage.src) {
                 ctx.drawImage(customImage, -drawSize, -drawSize, drawSize*2, drawSize*2);
             }
             ctx.restore();
 
-            // 3. 极简物理尾迹 (贝塞尔平滑重构)
+            // 3. 极简物理尾迹 (直线平滑重构，移除贝塞尔计算)
             if (this.trail.length > 2 && this.state === 'water') {
                 ctx.beginPath();
                 let tp0 = {x:0, y:0, scale:1, depth:0, visible:false};
@@ -582,23 +610,14 @@
                 if(tp0.visible) {
                     ctx.moveTo(tp0.x, tp0.y);
                     
-                    // 使用二次贝塞尔曲线连接中点，解决中心吸入时的折线突兀感，达到极致丝滑
-                    for (let i = 1; i < this.trail.length - 1; i++) {
+                    // 【核心性能优化】使用 lineTo 代替 quadraticCurveTo
+                    for (let i = 1; i < this.trail.length; i++) {
                         let curr = {x:0, y:0, scale:1, depth:0, visible:false};
-                        let next = {x:0, y:0, scale:1, depth:0, visible:false};
                         project(this.trail[i].x, this.trail[i].y, this.trail[i].z, curr);
-                        project(this.trail[i+1].x, this.trail[i+1].y, this.trail[i+1].z, next);
-                        
-                        if (curr.visible && next.visible) {
-                            let xc = (curr.x + next.x) / 2;
-                            let yc = (curr.y + next.y) / 2;
-                            ctx.quadraticCurveTo(curr.x, curr.y, xc, yc);
+                        if (curr.visible) {
+                            ctx.lineTo(curr.x, curr.y);
                         }
                     }
-                    
-                    let lastP = {x:0, y:0, scale:1, depth:0, visible:false};
-                    project(this.trail[this.trail.length-1].x, this.trail[this.trail.length-1].y, this.trail[this.trail.length-1].z, lastP);
-                    if(lastP.visible) ctx.lineTo(lastP.x, lastP.y);
                 }
                 
                 ctx.strokeStyle = `rgba(${this.rgb}, 0.6)`;
@@ -690,9 +709,11 @@
             ctx.translate(this.proj.x, this.proj.y);
             if (this.state === 'water') ctx.rotate(this.rotAngle);
             
-            // 移除了底部的光晕圆形，只展现纯净表情
-            ctx.font = `${this.baseSize * this.proj.scale}px Arial`;
+            // 【核心性能优化】矩阵缩放代替频繁修改 ctx.font
+            const scaleVal = (this.baseSize * this.proj.scale) / 40;
+            ctx.scale(scaleVal, scaleVal);
             ctx.fillText(this.icon, 0, 0);
+            
             ctx.restore();
             ctx.globalAlpha = 1.0;
         }
@@ -741,6 +762,9 @@
         // 绘制背景
         ctx.fillStyle = config.bgColor;
         ctx.fillRect(0, 0, width, height);
+
+        // 【核心性能优化】每帧全局仅设置一次字体，随后全部交由 ctx.scale 处理，告别字符串拼接和文字引擎重绘卡顿
+        ctx.font = '40px "Times New Roman", Arial, sans-serif';
 
         renderList.length = 0; 
 
