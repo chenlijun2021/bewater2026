@@ -157,6 +157,12 @@
         </div>
     </div>
     
+    <!-- 新增圆球大小控制 -->
+    <div class="control-group">
+        <label class="control-label"><span>投掷物大小</span><span id="val-objSize">12</span></label>
+        <input type="range" id="objSize" min="5" max="40" step="1" value="12" oninput="updateSet('objSize', this.value)">
+    </div>
+
     <div class="control-group file-upload-wrapper" id="uploadWrapper" style="display: none;">
         <button class="btn btn-upload">选择本地图片...</button>
         <input type="file" id="imageUpload" accept="image/*">
@@ -190,6 +196,7 @@
         silkColor: '#d1d1d6',
         objShape: 'circle',
         objColor: '#ff3b30',
+        objSize: 12, // 新增大小属性
         rainDuration: 5,
         perspective: 800,
         tilt: 0.65 // 3D水面倾斜角度
@@ -296,14 +303,15 @@
         adjustCharDensity(config.charCount);
     }
 
+    // 性能优化：全局缓存三角函数，避免每帧数千次的重复计算（核心解决卡顿点）
+    let g_cosT = Math.cos(defaultConfig.tilt);
+    let g_sinT = Math.sin(defaultConfig.tilt);
+
     // 高性能 3D 转 2D 投影
     function project(x, y, z, outProj) {
-        const cosT = Math.cos(config.tilt);
-        const sinT = Math.sin(config.tilt);
-        
-        // 旋转坐标系以匹配倾斜角度
-        const tiltedY = y * cosT - z * sinT;
-        const tiltedZ = y * sinT + z * cosT;
+        // 使用预计算的三角函数
+        const tiltedY = y * g_cosT - z * g_sinT;
+        const tiltedZ = y * g_sinT + z * g_cosT;
         
         // 深度计算
         const depth = config.perspective - tiltedZ;
@@ -355,11 +363,23 @@
             this.reset(true);
         }
         reset(initial) {
-            // 在整个画布范围内均匀分布，而非聚集成圈
-            const r = initial ? Math.sqrt(Math.random()) * width * 1.5 : width * 1.5;
-            const theta = Math.random() * Math.PI * 2;
-            this.x = r * Math.cos(theta);
-            this.y = r * Math.sin(theta);
+            // 优化分布：通过多重正弦波产生不均匀的“星系悬臂”聚集感
+            const arms = 4; // 4条主要旋臂
+            const arm = Math.floor(Math.random() * arms);
+            const rNorm = initial ? Math.random() : 1.0;
+            // 使得分布呈波浪形，部分区域密集，部分区域稀疏
+            const r = (rNorm + Math.sin(rNorm * Math.PI * 6) * 0.15) * width * 1.5; 
+            
+            // 基础角度对齐到旋臂
+            let angle = (arm * Math.PI * 2 / arms);
+            // 螺旋扭曲变形
+            angle += r * 0.004;
+            // 随机散射扩散（距离中心越远越散开）
+            const spread = 0.4 + (r / width) * 1.2;
+            angle += (Math.random() - 0.5) * spread;
+
+            this.x = r * Math.cos(angle);
+            this.y = r * Math.sin(angle);
             this.z = 0;
             this.char = this.chars[Math.floor(Math.random() * this.chars.length)];
             // 大小根据UI配置随机浮动
@@ -435,6 +455,7 @@
             this.state = 'falling';
             this.proj = { x:0, y:0, scale:1, depth:0, visible:false };
             this.trail = [];
+            this.maxTrail = 35; // 增加采样点上限以确保平滑
             this.scaleAnim = 1.0; // 形变动画因子
             this.rotAngle = 0; // 自转
         }
@@ -467,9 +488,9 @@
                 
                 if (this.z < -1000 || newR < 1) this.gone = true;
                 
-                // 高性能尾迹记录
-                if (this.trail.length > 20) this.trail.shift();
-                if (Math.random() < 0.6) this.trail.push({x: this.x, y: this.y, z: this.z});
+                // 优化轨迹逻辑：取消随机跳帧，每帧严格记录采样点，保证贝塞尔曲线极为平滑
+                this.trail.push({x: this.x, y: this.y, z: this.z});
+                if (this.trail.length > this.maxTrail) this.trail.shift();
             }
             project(this.x, this.y, this.z, this.proj);
         }
@@ -480,8 +501,7 @@
             ctx.globalAlpha = alpha;
 
             // 1. 发光层 (Alpha 堆叠，替代极慢的 shadowBlur)
-            const baseSize = 12 * p.scale;
-            const drawSize = baseSize * (this.state === 'falling' ? 1.0 : this.scaleAnim); 
+            const drawSize = config.objSize * p.scale * (this.state === 'falling' ? 1.0 : this.scaleAnim); 
             
             ctx.fillStyle = `rgba(${this.rgb}, 0.2)`;
             ctx.beginPath(); ctx.arc(p.x, p.y, drawSize * 1.8, 0, Math.PI*2); ctx.fill();
@@ -493,36 +513,36 @@
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(this.rotAngle);
-            
-            if (this.shape === 'circle') {
-                ctx.beginPath(); ctx.arc(0, 0, drawSize, 0, Math.PI*2); ctx.fill();
-            } else if (this.shape === 'star') {
-                ctx.beginPath();
-                for (let i = 0; i < 5; i++) {
-                    ctx.lineTo(Math.cos((18+i*72)*Math.PI/180)*drawSize*1.5, -Math.sin((18+i*72)*Math.PI/180)*drawSize*1.5);
-                    ctx.lineTo(Math.cos((54+i*72)*Math.PI/180)*drawSize*0.6, -Math.sin((54+i*72)*Math.PI/180)*drawSize*0.6);
-                }
-                ctx.closePath(); ctx.fill();
-            } else if (this.shape === 'heart') {
-                ctx.font = `${drawSize*2.5}px Arial`; ctx.fillText("❤️", 0, 0);
-            } else if (this.shape === 'custom' && customImage.src) {
-                ctx.drawImage(customImage, -drawSize*1.5, -drawSize*1.5, drawSize*3, drawSize*3);
-            }
-            ctx.restore();
-
-            // 3. 极简物理尾迹
+            // 3. 极简物理尾迹 (贝塞尔平滑重构)
             if (this.trail.length > 2 && this.state === 'water') {
                 ctx.beginPath();
-                let tp = {x:0, y:0, scale:1, depth:0, visible:false};
-                project(this.trail[0].x, this.trail[0].y, this.trail[0].z, tp);
-                if(tp.visible) ctx.moveTo(tp.x, tp.y);
+                let tp0 = {x:0, y:0, scale:1, depth:0, visible:false};
+                project(this.trail[0].x, this.trail[0].y, this.trail[0].z, tp0);
                 
-                for (let i=1; i<this.trail.length; i++) {
-                    project(this.trail[i].x, this.trail[i].y, this.trail[i].z, tp);
-                    if(tp.visible) ctx.lineTo(tp.x, tp.y);
+                if(tp0.visible) {
+                    ctx.moveTo(tp0.x, tp0.y);
+                    
+                    // 使用二次贝塞尔曲线连接中点，解决中心吸入时的折线突兀感，达到极致丝滑
+                    for (let i = 1; i < this.trail.length - 1; i++) {
+                        let curr = {x:0, y:0, scale:1, depth:0, visible:false};
+                        let next = {x:0, y:0, scale:1, depth:0, visible:false};
+                        project(this.trail[i].x, this.trail[i].y, this.trail[i].z, curr);
+                        project(this.trail[i+1].x, this.trail[i+1].y, this.trail[i+1].z, next);
+                        
+                        if (curr.visible && next.visible) {
+                            let xc = (curr.x + next.x) / 2;
+                            let yc = (curr.y + next.y) / 2;
+                            ctx.quadraticCurveTo(curr.x, curr.y, xc, yc);
+                        }
+                    }
+                    
+                    let lastP = {x:0, y:0, scale:1, depth:0, visible:false};
+                    project(this.trail[this.trail.length-1].x, this.trail[this.trail.length-1].y, this.trail[this.trail.length-1].z, lastP);
+                    if(lastP.visible) ctx.lineTo(lastP.x, lastP.y);
                 }
+                
                 ctx.strokeStyle = `rgba(${this.rgb}, 0.6)`;
-                ctx.lineWidth = 1.5 * p.scale;
+                ctx.lineWidth = 2 * p.scale;
                 ctx.stroke();
             }
             ctx.globalAlpha = 1.0;
@@ -569,6 +589,7 @@
             this.z = 800 + Math.random() * 400; // 高空
             this.vz = -30 - Math.random() * 20;
             this.icon = ['✨', '🌛', '🌞'][Math.floor(Math.random() * 3)];
+            this.baseSize = 15 + Math.random() * 25; // 随机大中小的雨滴
             this.proj = {x:0, y:0, scale:1, depth:0, visible:false};
             this.state = 'falling';
             this.rotAngle = 0;
@@ -601,18 +622,16 @@
         }
         draw() {
             if (!this.proj.visible) return;
+            // 仅在落入深渊时进行透明度渐隐，其余时间完全不透明
             const alpha = Math.max(0, 1 - Math.abs(this.z) / 800);
-            ctx.globalAlpha = this.state === 'falling' ? 0.8 : alpha;
+            ctx.globalAlpha = alpha;
             
             ctx.save();
             ctx.translate(this.proj.x, this.proj.y);
             if (this.state === 'water') ctx.rotate(this.rotAngle);
             
-            // 发光晕影
-            ctx.fillStyle = 'rgba(255, 255, 200, 0.3)';
-            ctx.beginPath(); ctx.arc(0, 0, 10 * this.proj.scale, 0, Math.PI*2); ctx.fill();
-
-            ctx.font = `${18 * this.proj.scale}px Arial`;
+            // 移除了底部的光晕圆形，只展现纯净表情
+            ctx.font = `${this.baseSize * this.proj.scale}px Arial`;
             ctx.fillText(this.icon, 0, 0);
             ctx.restore();
             ctx.globalAlpha = 1.0;
@@ -648,6 +667,10 @@
         let dt = (currentTime - lastTime) / 16.666;
         lastTime = currentTime;
         if (dt > 2.0) dt = 2.0; 
+        
+        // 渲染前统一更新三角函数状态，避免每帧万次计算
+        g_cosT = Math.cos(config.tilt);
+        g_sinT = Math.sin(config.tilt);
 
         // 绘制背景
         ctx.fillStyle = config.bgColor;
