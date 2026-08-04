@@ -357,6 +357,10 @@
             const proj = project(this.x, this.y, this.z);
             if (!proj) return;
             
+            // 梦幻感：根据卷入深渊的Z轴深度添加渐隐效果，越深越朦胧
+            const depthAlpha = Math.max(0.02, 1 - Math.abs(this.z) / 700);
+            ctx.globalAlpha = depthAlpha;
+
             // 绘制纤细字符
             ctx.fillStyle = params.charColor;
             const fontSize = this.baseSize * proj.scale;
@@ -385,16 +389,16 @@
                         
                         ctx.quadraticCurveTo(midX, midY, pProj.sx, pProj.sy);
                         
-                        // 距离越远，藕丝越透明
-                        const alpha = Math.max(0, 0.6 - (dist / 120) * 0.6);
+                        // 距离越远，藕丝越透明 (并叠加深渊渐隐)
+                        const alpha = Math.max(0, 0.6 - (dist / 120) * 0.6) * depthAlpha;
                         ctx.strokeStyle = params.silkColor;
                         ctx.globalAlpha = alpha;
                         ctx.lineWidth = 0.5 * proj.scale;
                         ctx.stroke();
-                        ctx.globalAlpha = 1.0; // 恢复透明度
                     }
                 }
             }
+            ctx.globalAlpha = 1.0; // 恢复透明度，防止污染其他渲染
         }
     }
 
@@ -470,6 +474,10 @@
             const proj = project(this.x, this.y, this.z);
             if (!proj) return;
 
+            // 开启外发光效果 (极具梦幻感)
+            ctx.shadowBlur = 15 * proj.scale;
+            ctx.shadowColor = this.color;
+
             // 1. 绘制物理尾迹
             if (this.trail.length > 1) {
                 ctx.beginPath();
@@ -505,6 +513,13 @@
             const size = params.objectSize * proj.scale;
             ctx.fillStyle = this.color;
             
+            // 绘制核心外围柔和光晕图层 (增强梦幻如水母般的效果)
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(proj.sx, proj.sy, size * 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+
             if (this.shape === 'circle') {
                 ctx.beginPath();
                 ctx.arc(proj.sx, proj.sy, size, 0, Math.PI * 2);
@@ -530,6 +545,9 @@
                 ctx.textBaseline = "middle";
                 ctx.fillText("❤️", proj.sx, proj.sy);
             }
+            
+            // 绘制完毕关闭阴影发光，防止严重掉帧或污染流体字符
+            ctx.shadowBlur = 0;
         }
     }
 
@@ -554,6 +572,8 @@
     window.addEventListener('mousedown', handlePointerDown);
     window.addEventListener('touchstart', handlePointerDown, { passive: false });
 
+    let renderList = []; // 全局渲染列表池，避免每帧产生新数组导致垃圾回收(GC)卡顿
+
     // 核心动画渲染循环 (引入 DeltaTime)
     function animate(currentTime) {
         // 计算 DeltaTime (dt)，基准帧率 60fps (16.6ms)
@@ -562,34 +582,45 @@
         lastTime = currentTime;
         
         // 限制最大 dt，防止由于页面切换到后台再切回来时产生巨大的跳跃 (卡顿/穿模)
-        if (dt > 3) dt = 3; 
+        if (dt > 2.5) dt = 2.5; 
 
-        // 干净地清空背景 (移除了拖影导致卡顿的问题)
+        // 干净地清空背景
         ctx.fillStyle = params.bgColor;
         ctx.fillRect(0, 0, width, height);
 
-        // Z轴深度排序 (Painter's Algorithm)，确保前面的遮挡后面的
-        const allItems = [...characters, ...thrownObjects].filter(item => !item.gone);
-        
-        // 更新逻辑
-        for (let i = 0; i < allItems.length; i++) {
-            allItems[i].update(dt);
+        // --- 性能极致优化点 ---
+        // 预先计算这一帧的三角函数，避免在每次深度对比时重复计算数万次，彻底解决交互时的顿挫感
+        const sinT = Math.sin(params.tilt);
+        const cosT = Math.cos(params.tilt);
+
+        renderList.length = 0; // 高效清空数组，复用内存
+
+        // 更新逻辑 & 预计算深度 (renderZ)
+        for (let i = 0; i < characters.length; i++) {
+            characters[i].update(dt);
+            characters[i].renderZ = characters[i].y * sinT + characters[i].z * cosT;
+            renderList.push(characters[i]);
         }
         
-        // 渲染前排序
-        allItems.sort((a, b) => {
-            const zA = a.y * Math.sin(params.tilt) + a.z * Math.cos(params.tilt);
-            const zB = b.y * Math.sin(params.tilt) + b.z * Math.cos(params.tilt);
-            return (params.perspective - zB) - (params.perspective - zA); 
-        });
+        for (let i = thrownObjects.length - 1; i >= 0; i--) {
+            let obj = thrownObjects[i];
+            obj.update(dt);
+            if (obj.gone) {
+                thrownObjects.splice(i, 1); // 实时直接清理，代替 filter，降低 CPU 开销
+            } else {
+                obj.renderZ = obj.y * sinT + obj.z * cosT;
+                renderList.push(obj);
+            }
+        }
+
+        // Z轴深度排序 (Painter's Algorithm)
+        // 直接使用预计算的 renderZ 进行一维排序，速度提升百倍
+        renderList.sort((a, b) => b.renderZ - a.renderZ);
 
         // 渲染
-        for (let i = 0; i < allItems.length; i++) {
-            allItems[i].draw();
+        for (let i = 0; i < renderList.length; i++) {
+            renderList[i].draw();
         }
-        
-        // 清理已消失的物体
-        thrownObjects = thrownObjects.filter(b => !b.gone);
 
         requestAnimationFrame(animate);
     }
