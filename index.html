@@ -3,467 +3,835 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Typographic Vortex - 极简丝滑版</title>
+    <title>艺术编程：深渊漩涡与梦幻流光</title>
     <style>
-        /* 强制无衬线体设计，极简干净 */
-        body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #000; overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+        /* 全局样式：极简纯粹 */
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; 
+            background-color: #050508; /* 恢复深邃暗色背景 */
+            user-select: none; -webkit-tap-highlight-color: transparent; 
+            display: flex; justify-content: center; align-items: center; /* 使画面居中 */
         }
-
-        #app-container {
-            display: flex; justify-content: center; align-items: center; 
-            width: 100%; height: 100%;
-        }
-
-        #canvas-wrapper {
-            position: relative;
-            background: #000;
-            overflow: hidden;
-            box-shadow: 0 0 40px rgba(0,0,0,0.8);
-            transition: width 0.4s, height 0.4s; /* 比例切换动画 */
-        }
-
-        canvas { display: block; width: 100%; height: 100%; cursor: pointer; }
-
-        /* 极简汉堡菜单图标 (三条杠) */
-        #menu-btn {
-            position: fixed; top: 20px; right: 20px; width: 44px; height: 44px;
-            background: rgba(255, 255, 255, 0.9); border-radius: 50%;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 101; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        #menu-btn div {
-            width: 18px; height: 2px; background: #333; margin: 2px 0; border-radius: 2px;
-        }
-
-        /* 控制面板 */
-        #ui-panel {
-            position: fixed; top: 20px; right: 20px; width: 320px; max-height: 85vh; overflow-y: auto;
-            background: rgba(255, 255, 255, 0.96); border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15); padding: 25px; box-sizing: border-box;
-            transform: translateX(120%); transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-            z-index: 100;
-        }
-        #ui-panel.active { transform: translateX(0); }
-        /* 展开面板时隐藏汉堡图标 */
-        #ui-panel.active ~ #menu-btn { opacity: 0; pointer-events: none; }
         
-        /* 面板关闭按钮 */
-        #close-btn {
-            position: absolute; top: 15px; right: 15px; cursor: pointer;
-            font-size: 20px; color: #888; line-height: 1;
+        /* 自适应容器：恢复全屏沉浸感 */
+        #canvasWrapper {
+            position: relative;
+            background-color: #050508;
+            overflow: hidden;
+            transition: background-color 0.5s, width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 100vw; /* 默认全屏 */
+            height: 100vh; /* 默认全屏 */
+            max-width: 100vw; max-height: 100vh;
         }
 
-        /* 独立流星雨按钮 */
-        #meteor-btn {
-            position: fixed; bottom: 30px; left: 30px; width: 56px; height: 56px;
-            background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%; display: flex; justify-content: center; align-items: center;
-            cursor: pointer; z-index: 100; font-size: 26px; color: #fff;
-            backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: all 0.3s;
-        }
-        #meteor-btn:hover { background: rgba(255, 255, 255, 0.25); transform: scale(1.08); }
+        canvas { display: block; width: 100%; height: 100%; }
 
-        /* UI 内部排版 */
-        h3 { margin: 0 0 20px 0; font-size: 16px; color: #111; letter-spacing: 0.5px; }
-        .control-group { margin-bottom: 16px; }
-        .control-group label { display: block; font-size: 12px; color: #555; margin-bottom: 6px; font-weight: 500; }
-        .row { display: flex; gap: 10px; }
-        .row > div { flex: 1; }
-        input[type=range] { width: 100%; cursor: pointer; }
-        input[type=color] { width: 100%; height: 32px; border: none; border-radius: 4px; cursor: pointer; padding: 0; }
-        input[type=text], select { width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 8px; box-sizing: border-box; font-family: inherit; font-size: 13px; }
-        .btn { display: block; width: 100%; padding: 10px; background: #f0f0f0; border-radius: 6px; text-align: center; font-size: 13px; color: #333; cursor: pointer; border: 1px solid #ddd; transition: 0.2s; box-sizing: border-box; }
-        .btn:hover { background: #e0e0e0; }
-        input[type=file] { display: none; }
+        /* 悬浮图标 (收起状态) - 极简三条杠 */
+        #uiFab {
+            position: fixed; top: 24px; right: 24px; width: 44px; height: 44px;
+            background: rgba(255, 255, 255, 0.9); border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px;
+            cursor: pointer; z-index: 1001;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(10px);
+        }
+        #uiFab .bar { width: 20px; height: 2px; background-color: #1d1d1f; border-radius: 2px; transition: all 0.3s; }
+        #uiFab:hover { transform: scale(1.05); background: #fff; }
+        #uiFab.hidden { opacity: 0; pointer-events: none; transform: scale(0.5); }
+
+        /* 极简白色 UI 控制面板 */
+        #uiPanel {
+            position: fixed; top: 24px; right: 24px; width: 340px; max-height: calc(100vh - 48px); overflow-y: auto;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(15px);
+            border-radius: 16px; box-shadow: 0 12px 48px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.05);
+            padding: 24px; z-index: 1000; box-sizing: border-box;
+            opacity: 0; pointer-events: none; transform: scale(0.9) translateY(-10px); transform-origin: top right;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* 自定义滚动条 */
+        #uiPanel::-webkit-scrollbar { width: 6px; }
+        #uiPanel::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+        
+        #uiPanel.active { opacity: 1; pointer-events: auto; transform: scale(1) translateY(0); }
+
+        /* 面板头部 */
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .panel-title { font-size: 16px; font-weight: 600; color: #1d1d1f; letter-spacing: 0.5px; }
+        .close-btn { font-size: 26px; color: #86868b; cursor: pointer; transition: color 0.2s; line-height: 1; margin-top:-4px; }
+        .close-btn:hover { color: #1d1d1f; }
+
+        /* 分割线 */
+        .divider { height: 1px; background: #e5e5ea; margin: 16px 0; }
+
+        /* 控件样式 */
+        .control-group { margin-bottom: 14px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 13px; color: #515154; margin-bottom: 8px; font-weight: 500; }
+        .control-label span:last-child { color: #86868b; font-family: monospace; }
+        
+        input[type="range"] { -webkit-appearance: none; background: #e5e5ea; height: 4px; border-radius: 2px; outline: none; width: 100%; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; background: #fff; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #d1d1d6; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: grab; transition: transform 0.1s; }
+        input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.1); cursor: grabbing; }
+        
+        .row { display: flex; gap: 12px; }
+        .col { flex: 1; }
+        select { font-size: 13px; padding: 8px 10px; border: 1px solid #d1d1d6; border-radius: 8px; outline: none; background: #f5f5f7; width: 100%; color: #1d1d1f; cursor: pointer; transition: border 0.2s; }
+        select:hover { border-color: #a1a1a6; }
+        
+        /* 颜色输入框定制 */
+        .color-wrapper { display: flex; align-items: center; gap: 8px; }
+        input[type="color"] { -webkit-appearance: none; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; padding: 0; background: none; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+
+        /* 按钮样式 */
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); text-align: center; margin-top: 10px; display: flex; justify-content: center; align-items: center; gap: 6px; }
+        
+        .btn-magic { background: linear-gradient(135deg, #1d1d1f 0%, #43434a 100%); color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-magic:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
+        .btn-magic:active { transform: scale(0.98); }
+        
+        .btn-reset { background: transparent; color: #ff3b30; border: 1px solid rgba(255,59,48,0.3); margin-top: 15px; }
+        .btn-reset:hover { background: #fff0f0; border-color: #ff3b30; }
+
+        .file-upload-wrapper { position: relative; overflow: hidden; margin-top: 8px; }
+        .file-upload-wrapper input[type="file"] { position: absolute; font-size: 100px; opacity: 0; right: 0; top: 0; cursor: pointer; }
+        .btn-upload { background: #f5f5f7; color: #1d1d1f; display: block; border: 1px dashed #d1d1d6; }
+        .btn-upload:hover { background: #ebebf0; border-color: #a1a1a6; }
+
+        /* 独立流星雨小按钮 */
+        #btnRain {
+            position: fixed; bottom: 32px; left: 32px; width: 48px; height: 48px;
+            border-radius: 50%; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px);
+            border: 1px solid #e5e5ea; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            font-size: 24px; display: flex; justify-content: center; align-items: center;
+            cursor: pointer; z-index: 1001; transition: transform 0.2s;
+        }
+        #btnRain:hover { transform: scale(1.1); background: #fff; }
+        #btnRain:active { transform: scale(0.95); }
+
     </style>
 </head>
 <body>
 
-<div id="app-container">
-    <div id="canvas-wrapper">
-        <canvas id="vortexCanvas"></canvas>
-    </div>
+<!-- 新增画布容器包裹 -->
+<div id="canvasWrapper">
+    <canvas id="mainCanvas"></canvas>
 </div>
 
-<div id="ui-panel">
-    <div id="close-btn" onclick="toggleUI()">×</div>
-    <h3>物理参数与艺术设置</h3>
+<!-- 独立角落按钮 -->
+<div id="btnRain" onclick="triggerMagicRain()" title="降下流光雨">✨</div>
+
+<!-- 悬浮图标 (三条杠，极致留白) -->
+<div id="uiFab" onclick="openPanel()">
+    <div class="bar"></div>
+    <div class="bar"></div>
+    <div class="bar"></div>
+</div>
+
+<!-- 控制面板 -->
+<div id="uiPanel">
+    <div class="panel-header">
+        <span class="panel-title">艺术与物理参数</span>
+        <span class="close-btn" onclick="closePanel()">×</span>
+    </div>
     
-    <div class="control-group">
-        <label>画面展示比例</label>
-        <select id="ui-ratio" onchange="resizeCanvas()">
-            <option value="full">全屏沉浸</option>
-            <option value="3:4" selected>3:4 (录屏标准)</option>
-            <option value="9:16">9:16 (手机竖屏)</option>
-            <option value="1:1">1:1 (正方形)</option>
-        </select>
+    <div class="control-group color-wrapper">
+        <label class="control-label" style="margin:0; flex:1;">背景颜色</label>
+        <input type="color" id="bgColor" value="#050508" oninput="updateSet('bgColor', this.value)">
     </div>
-    <div class="control-group row">
-        <div>
-            <label>渐变顶部颜色</label>
-            <input type="color" id="ui-bgTop" value="#0032c7" oninput="updateSettings()">
-        </div>
-        <div>
-            <label>渐变底部颜色</label>
-            <input type="color" id="ui-bgBottom" value="#0055ff" oninput="updateSettings()">
-        </div>
-    </div>
-    <div class="control-group">
-        <label>流速 (环境整体转速)</label>
-        <input type="range" id="ui-speed" min="0.1" max="2.0" step="0.1" value="0.7" oninput="updateSettings()">
-    </div>
-    <div class="control-group">
-        <label>黑洞吸力倍率 (中心加速)</label>
-        <input type="range" id="ui-centerSpeed" min="1.0" max="6.0" step="0.2" value="3.5" oninput="updateSettings()">
-    </div>
-    <div class="control-group">
-        <label>深渊核心范围</label>
-        <input type="range" id="ui-coreRange" min="30" max="300" step="10" value="120" oninput="updateSettings()">
-    </div>
-    <div class="control-group">
-        <label>水面字符数量与大小</label>
-        <div class="row">
-            <input type="range" id="ui-charCount" min="100" max="1500" step="100" value="500" oninput="updateSettings()">
-            <input type="range" id="ui-charSize" min="8" max="30" step="1" value="14" oninput="updateSettings()">
-        </div>
-    </div>
-    <div class="control-group">
-        <label>流星雨表情组合 (空格隔开)</label>
-        <input type="text" id="ui-emojis" value="✨ 🌛 🌞 🌟 💫" onchange="updateSettings()">
-    </div>
-    <div class="control-group">
-        <label>流星雨图标大小</label>
-        <input type="range" id="ui-emojiSize" min="15" max="60" step="2" value="30" oninput="updateSettings()">
-    </div>
-    <div class="control-group row">
-        <div>
-            <label>投掷圆球颜色</label>
-            <input type="color" id="ui-ballColor" value="#ff4757" oninput="updateSettings()">
-        </div>
-        <div>
-            <label>圆球自定义图片</label>
-            <label class="btn" for="uploadImage">上传图片</label>
-            <input type="file" id="uploadImage" accept="image/png, image/jpeg" onchange="handleImageUpload(event)">
-        </div>
-    </div>
-</div>
 
-<div id="menu-btn" onclick="toggleUI()">
-    <div></div><div></div><div></div>
-</div>
+    <div class="divider"></div>
+    
+    <!-- 新增视口区域调整 -->
+    <div class="control-group row">
+        <div class="col">
+            <label class="control-label"><span>视口宽度 (vw)</span><span id="val-viewWidth">100</span></label>
+            <input type="range" id="viewWidth" min="30" max="100" step="1" value="100" oninput="updateSet('viewWidth', this.value)">
+        </div>
+        <div class="col">
+            <label class="control-label"><span>视口高度 (vh)</span><span id="val-viewHeight">100</span></label>
+            <input type="range" id="viewHeight" min="30" max="100" step="1" value="100" oninput="updateSet('viewHeight', this.value)">
+        </div>
+    </div>
 
-<div id="meteor-btn" onclick="triggerMeteorShower()">✨</div>
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <label class="control-label"><span>环境流速 (全局)</span><span id="val-flowSpeed">1.0</span></label>
+        <input type="range" id="flowSpeed" min="0.1" max="2.0" step="0.1" value="1.0" oninput="updateSet('flowSpeed', this.value)">
+    </div>
+    <div class="control-group">
+        <label class="control-label"><span>中心吸力倍率 (黑洞效应)</span><span id="val-centerSpeed">3.0</span></label>
+        <input type="range" id="centerSpeed" min="1.0" max="10.0" step="0.5" value="3.0" oninput="updateSet('centerSpeed', this.value)">
+    </div>
+    <div class="control-group">
+        <label class="control-label"><span>漩涡深渊范围</span><span id="val-coreRadius">90</span></label>
+        <input type="range" id="coreRadius" min="20" max="250" step="10" value="90" oninput="updateSet('coreRadius', this.value)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group row">
+        <div class="col">
+            <label class="control-label"><span>字符数量</span><span id="val-charCount">400</span></label>
+            <input type="range" id="charCount" min="100" max="1200" step="50" value="400" oninput="updateSet('charCount', this.value)">
+        </div>
+        <div class="col">
+            <label class="control-label"><span>字符基础大小</span><span id="val-charSize">12</span></label>
+            <input type="range" id="charSize" min="6" max="30" step="1" value="12" oninput="updateSet('charSize', this.value)">
+        </div>
+    </div>
+    <div class="control-group color-wrapper">
+        <label class="control-label" style="margin:0; flex:1;">字符流颜色</label>
+        <input type="color" id="charColor" value="#8a9ab0" oninput="updateSet('charColor', this.value)">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group row">
+        <div class="col">
+            <label class="control-label">投掷物形状</label>
+            <select id="objShape" onchange="updateSet('objShape', this.value)">
+                <option value="circle">圆点</option>
+                <option value="star">星星</option>
+                <option value="heart">爱心 (Emoji)</option>
+                <option value="custom">自定义图片</option>
+            </select>
+        </div>
+        <div class="col color-wrapper">
+            <label class="control-label" style="margin:0; flex:1;">物体颜色</label>
+            <input type="color" id="objColor" value="#00ffcc" oninput="updateSet('objColor', this.value)">
+        </div>
+    </div>
+    
+    <!-- 新增圆球大小控制 -->
+    <div class="control-group">
+        <label class="control-label"><span>投掷物大小</span><span id="val-objSize">12</span></label>
+        <input type="range" id="objSize" min="5" max="40" step="1" value="12" oninput="updateSet('objSize', this.value)">
+    </div>
+
+    <div class="control-group file-upload-wrapper" id="uploadWrapper" style="display: none;">
+        <button class="btn btn-upload">选择本地图片...</button>
+        <input type="file" id="imageUpload" accept="image/*">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+        <label class="control-label"><span>流星雨持续时间 (秒)</span><span id="val-rainDuration">5</span></label>
+        <input type="range" id="rainDuration" min="2" max="15" step="1" value="5" oninput="updateSet('rainDuration', this.value)">
+    </div>
+
+    <!-- 移除了流星雨控制按钮，仅保留复位 -->
+    <button class="btn btn-reset" onclick="resetAll()">⟲ 复位全部状态</button>
+</div>
 
 <script>
-    const canvas = document.getElementById('vortexCanvas');
-    const ctx = canvas.getContext('2d', { alpha: false }); // 优化：关闭底层透明度以提速
-    
-    // --- 核心状态 ---
-    const config = {
-        bgTop: '#0032c7', bgBottom: '#0055ff',
-        speed: 0.7, centerSpeed: 3.5, coreRange: 120,
-        charCount: 500, charSize: 14,
-        emojis: ['✨', '🌛', '🌞', '🌟', '💫'], emojiSize: 30,
-        ballColor: '#ff4757', customImg: null,
-        tilt: 0.65, perspective: 1000
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false }); // 关闭alpha提升画布重绘性能
+    let width, height, cx, cy;
+
+    // 默认配置（用于复位）
+    const defaultConfig = {
+        viewWidth: 100,
+        viewHeight: 100,
+        bgColor: '#050508',
+        flowSpeed: 1.0,
+        centerSpeed: 3.0,
+        coreRadius: 90,
+        charCount: 400,
+        charSize: 12,
+        charColor: '#8a9ab0',
+        silkColor: '#4a5a70',
+        objShape: 'circle',
+        objColor: '#00ffcc',
+        objSize: 12, // 新增大小属性
+        rainDuration: 5,
+        perspective: 800,
+        tilt: 0.65 // 3D水面倾斜角度
     };
+    
+    // 当前运行配置
+    let config = { ...defaultConfig };
 
-    let chars = [];
-    let throwables = [];
-    let customImageObj = null;
+    let charPool = [];
+    let objPool = [];
+    let ripplePool = [];
+    let rainPool = [];
+    
+    let isRaining = false;
+    let rainEndTime = 0;
+    let customImage = new Image();
 
-    // --- 高性能：精灵图缓存引擎 (Sprite Cache) ---
-    // 通过离屏渲染消灭字体解析引起的严重卡顿，保证无衬线体统一
-    const spriteCache = new Map();
-    function getSprite(text, size, color) {
-        const key = `${text}_${size}_${color}`;
-        if (spriteCache.has(key)) return spriteCache.get(key);
-        
-        const offCanvas = document.createElement('canvas');
-        const padding = size * 0.5;
-        offCanvas.width = size * 1.5 + padding;
-        offCanvas.height = size * 1.5 + padding;
-        const octx = offCanvas.getContext('2d');
-        
-        // 确保全局使用干净的无衬线字体
-        octx.font = `${size}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
-        octx.textAlign = 'center';
-        octx.textBaseline = 'middle';
-        octx.fillStyle = color;
-        octx.fillText(text, offCanvas.width/2, offCanvas.height/2);
-        
-        spriteCache.set(key, offCanvas);
-        return offCanvas;
+    // 解析十六进制颜色，用于纯性能透明度叠加计算
+    function hexToRgb(hex) {
+        let r = 0, g = 0, b = 0;
+        if (hex.length === 7) {
+            r = parseInt(hex.substring(1,3), 16);
+            g = parseInt(hex.substring(3,5), 16);
+            b = parseInt(hex.substring(5,7), 16);
+        }
+        return `${r},${g},${b}`;
     }
 
-    // --- 页面与 UI 逻辑 ---
-    function toggleUI() {
-        document.getElementById('ui-panel').classList.toggle('active');
+    function openPanel() {
+        document.getElementById('uiFab').classList.add('hidden');
+        document.getElementById('uiPanel').classList.add('active');
+    }
+    function closePanel() {
+        document.getElementById('uiPanel').classList.remove('active');
+        document.getElementById('uiFab').classList.remove('hidden');
     }
 
-    function resizeCanvas() {
-        const wrapper = document.getElementById('canvas-wrapper');
-        const ratioStr = document.getElementById('ui-ratio').value;
-        const winW = window.innerWidth;
-        const winH = window.innerHeight;
-
-        let targetW = winW;
-        let targetH = winH;
-
-        if (ratioStr !== 'full') {
-            const [rw, rh] = ratioStr.split(':').map(Number);
-            const winRatio = winW / winH;
-            const targetRatio = rw / rh;
-            if (winRatio > targetRatio) { // 屏幕太宽，以高度为准
-                targetH = winH * 0.95; 
-                targetW = targetH * targetRatio;
-            } else { // 屏幕太窄，以宽度为准
-                targetW = winW * 0.95;
-                targetH = targetW / targetRatio;
-            }
+    function updateSet(key, val) {
+        // 更新数据
+        config[key] = (key === 'bgColor' || key === 'objColor' || key === 'charColor' || key === 'objShape') ? val : parseFloat(val);
+        
+        // 更新 UI 文本显示
+        const valDisp = document.getElementById(`val-${key}`);
+        if (valDisp) valDisp.innerText = val;
+        
+        // 特殊逻辑处理 (改为修改 Wrapper 颜色)
+        if (key === 'bgColor') document.getElementById('canvasWrapper').style.backgroundColor = val;
+        
+        // 新增：视口尺寸动态调整，彻底摆脱写死的媒体查询比例
+        if (key === 'viewWidth' || key === 'viewHeight') {
+            const wrapper = document.getElementById('canvasWrapper');
+            wrapper.style.width = config.viewWidth + 'vw';
+            wrapper.style.height = config.viewHeight + 'vh';
+            // 延迟一点等待 CSS transition 属性跟上后重绘画布以防拉伸
+            setTimeout(resize, 60); 
         }
 
-        wrapper.style.width = targetW + 'px';
-        wrapper.style.height = targetH + 'px';
-        canvas.width = targetW;
-        canvas.height = targetH;
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    function updateSettings() {
-        config.bgTop = document.getElementById('ui-bgTop').value;
-        config.bgBottom = document.getElementById('ui-bgBottom').value;
-        config.speed = parseFloat(document.getElementById('ui-speed').value);
-        config.centerSpeed = parseFloat(document.getElementById('ui-centerSpeed').value);
-        config.coreRange = parseFloat(document.getElementById('ui-coreRange').value);
-        config.charSize = parseInt(document.getElementById('ui-charSize').value);
-        config.emojiSize = parseInt(document.getElementById('ui-emojiSize').value);
-        config.ballColor = document.getElementById('ui-ballColor').value;
-        
-        const emojiStr = document.getElementById('ui-emojis').value;
-        config.emojis = emojiStr.trim().split(/\s+/).filter(e => e);
-        if(config.emojis.length === 0) config.emojis = ['✨'];
-
-        // 动态调整字符数量而不引起卡顿 (对象池模式)
-        const targetCount = parseInt(document.getElementById('ui-charCount').value);
-        while (chars.length < targetCount) chars.push(new WaterChar());
-        if (chars.length > targetCount) chars.length = targetCount;
+        if (key === 'objShape') {
+            document.getElementById('uploadWrapper').style.display = val === 'custom' ? 'block' : 'none';
+        }
+        if (key === 'charCount') {
+            adjustCharDensity(config.charCount);
+        }
     }
 
-    function handleImageUpload(e) {
+    // 动态调整字符密度（对象池复用机制，彻底避免掉帧）
+    function adjustCharDensity(newCount) {
+        if (newCount > charPool.length) {
+            while (charPool.length < newCount) {
+                charPool.push(new CharParticle(charPool.length));
+            }
+        } else if (newCount < charPool.length) {
+            charPool.length = newCount; // 截断数组
+        }
+    }
+
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => { customImageObj = img; };
-                img.src = event.target.result;
-            };
+            reader.onload = (event) => { customImage.src = event.target.result; };
             reader.readAsDataURL(file);
+            document.getElementById('objShape').value = 'custom';
+            updateSet('objShape', 'custom');
         }
-    }
-
-    // --- 3D 物理与透视 ---
-    function getVortexVel(x, y, z) {
-        const r = Math.sqrt(x*x + y*y);
-        const invR = 1 / (r + 1);
-        let omega = (0.02 / (r/config.coreRange + 0.1)) * config.speed;
-        let radial = -0.5 * config.speed;
-        let vZ = 0;
-
-        if (r < config.coreRange * 1.5) radial *= config.centerSpeed; // 靠近黑洞加速吸入
-        if (z <= 0 && r < config.coreRange * 0.8) vZ = -15 * config.speed * config.centerSpeed; // 坠落
-
-        return { vx: x*radial*invR - y*omega, vy: y*radial*invR + x*omega, vz: vZ };
-    }
-
-    function project3D(x, y, z) {
-        const tiltZ = z * Math.cos(config.tilt) - y * Math.sin(config.tilt);
-        const zDepth = config.perspective - tiltZ;
-        if (zDepth < 10) return null; // 剔除视锥体后方的物体防止逆向放大卡死
-        
-        const scale = config.perspective / zDepth;
-        // 限制最大缩放率，彻底防止极其靠近相机时的极限卡顿
-        const safeScale = Math.min(scale, 5.0); 
-        
-        const sx = canvas.width / 2 + x * Math.cos(config.tilt) * safeScale;
-        const sy = canvas.height / 2 + (y * Math.cos(config.tilt) + z * Math.sin(config.tilt)) * safeScale;
-        
-        return { x: sx, y: sy, scale: safeScale, depth: tiltZ };
-    }
-
-    // --- 实体类 ---
-    class WaterChar {
-        constructor() { this.reset(); }
-        reset() {
-            const r = Math.random() * canvas.width * 1.2;
-            const theta = Math.random() * Math.PI * 2;
-            this.x = Math.cos(theta) * r;
-            this.y = Math.sin(theta) * r;
-            this.z = 0;
-            this.char = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
-            this.color = Math.random() > 0.3 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)';
-            
-            // 聚类分布：给部分字符赋予偏移组，不再散布得过分均匀
-            if(Math.random() < 0.2) {
-                this.x += (Math.random()-0.5) * 50;
-                this.y += (Math.random()-0.5) * 50;
-            }
-        }
-        update(dt) {
-            const v = getVortexVel(this.x, this.y, this.z);
-            this.x += v.vx * dt * 60;
-            this.y += v.vy * dt * 60;
-            if (this.x*this.x + this.y*this.y < 100) this.reset();
-        }
-        draw() {
-            const p = project3D(this.x, this.y, this.z);
-            if (!p) return;
-            const sprite = getSprite(this.char, config.charSize, this.color);
-            const w = sprite.width * p.scale;
-            const h = sprite.height * p.scale;
-            ctx.globalAlpha = Math.min(1.0, 1.5 - (p.scale * 0.2)); // 靠近视野变淡
-            ctx.drawImage(sprite, p.x - w/2, p.y - h/2, w, h);
-            ctx.globalAlpha = 1.0;
-        }
-    }
-
-    class Throwable {
-        constructor(sx, sy, isMeteor = false) {
-            this.isMeteor = isMeteor;
-            this.reset(sx, sy);
-        }
-        reset(sx, sy) {
-            this.x = (sx - canvas.width/2) / Math.cos(config.tilt);
-            this.y = (sy - canvas.height/2) / Math.cos(config.tilt) - 1000; 
-            this.z = 1200; // 高空坠落
-            this.vz = -40; // 初始向内初速
-            this.onWater = false;
-            this.gone = false;
-            this.trail = [];
-            
-            if (this.isMeteor) {
-                this.type = 'emoji';
-                this.emoji = config.emojis[Math.floor(Math.random() * config.emojis.length)];
-            } else {
-                this.type = customImageObj ? 'image' : 'ball';
-            }
-        }
-        update(dt) {
-            if (!this.onWater) {
-                this.z += this.vz * dt * 60;
-                if (this.z <= 0) {
-                    this.z = 0; this.onWater = true;
-                    // 入水继承水流速度
-                    const v = getVortexVel(this.x, this.y, this.z);
-                    this.vx = v.vx; this.vy = v.vy;
-                }
-            } else {
-                const v = getVortexVel(this.x, this.y, this.z);
-                this.x += v.vx * dt * 60; 
-                this.y += v.vy * dt * 60; 
-                this.z += v.vz * dt * 60;
-                
-                // 记录平滑拖尾轨迹 (直线优化)
-                if (this.trail.length > 20) this.trail.shift();
-                const p = project3D(this.x, this.y, this.z);
-                if (p) this.trail.push(p);
-
-                if (this.z < -600 || (this.x*this.x + this.y*this.y < 20)) this.gone = true;
-            }
-        }
-        draw() {
-            if (this.gone) return;
-            
-            // 绘制丝滑轨迹
-            if (this.onWater && this.trail.length > 2) {
-                ctx.beginPath();
-                ctx.moveTo(this.trail[0].x, this.trail[0].y);
-                for(let i=1; i<this.trail.length; i++) ctx.lineTo(this.trail[i].x, this.trail[i].y);
-                ctx.strokeStyle = this.isMeteor ? 'rgba(255,255,255,0.4)' : `${config.ballColor}88`;
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            }
-
-            const p = project3D(this.x, this.y, this.z);
-            if (!p) return;
-            
-            // 渐隐坠落
-            ctx.globalAlpha = this.z < 0 ? Math.max(0, 1 + this.z / 600) : 1.0;
-
-            if (this.type === 'emoji') {
-                const sprite = getSprite(this.emoji, config.emojiSize, '#fff');
-                const w = sprite.width * p.scale;
-                const h = sprite.height * p.scale;
-                ctx.drawImage(sprite, p.x - w/2, p.y - h/2, w, h);
-            } else if (this.type === 'image' && customImageObj) {
-                const size = 30 * p.scale;
-                ctx.drawImage(customImageObj, p.x - size/2, p.y - size/2, size, size);
-            } else {
-                ctx.fillStyle = config.ballColor;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, 12 * p.scale, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1.0;
-        }
-    }
-
-    // --- 核心循环与交互 ---
-    function triggerMeteorShower() {
-        for(let i=0; i<60; i++) {
-            setTimeout(() => {
-                throwables.push(new Throwable(
-                    canvas.width/2 + (Math.random()-0.5) * canvas.width * 1.5, 
-                    canvas.height/2 + (Math.random()-0.5) * canvas.height * 1.5,
-                    true
-                ));
-            }, i * 50); // 间隔产生，避免瞬间掉帧
-        }
-    }
-
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        throwables.push(new Throwable((e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY, false));
     });
 
-    let lastTime = performance.now();
-    function animate(currentTime) {
-        // Delta Time 保护，封顶解决切后台后瞬间爆发的运算卡顿
-        let dt = (currentTime - lastTime) / 1000;
-        if (dt > 0.1) dt = 0.1; 
-        lastTime = currentTime;
+    function triggerMagicRain() {
+        isRaining = true;
+        rainEndTime = performance.now() + (config.rainDuration * 1000);
+    }
 
-        // 绘制渐变背景
-        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        grad.addColorStop(0, config.bgTop);
-        grad.addColorStop(1, config.bgBottom);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // 批处理与渲染
-        for (let i = 0; i < chars.length; i++) {
-            chars[i].update(dt); chars[i].draw();
-        }
+    function resetAll() {
+        // 恢复数据
+        config = { ...defaultConfig };
         
-        for (let i = throwables.length - 1; i >= 0; i--) {
-            throwables[i].update(dt);
-            throwables[i].draw();
-            if (throwables[i].gone) throwables.splice(i, 1);
+        // 恢复 UI 控件
+        for (const key in defaultConfig) {
+            const el = document.getElementById(key);
+            if (el) {
+                el.value = config[key];
+                const valDisp = document.getElementById(`val-${key}`);
+                if (valDisp) valDisp.innerText = config[key];
+            }
+        }
+        document.getElementById('canvasWrapper').style.backgroundColor = config.bgColor;
+        document.getElementById('uploadWrapper').style.display = 'none';
+
+        // 清空实体并重置
+        objPool = [];
+        ripplePool = [];
+        rainPool = [];
+        charPool = [];
+        adjustCharDensity(config.charCount);
+    }
+
+    // 性能优化：全局缓存三角函数，避免每帧数千次的重复计算（核心解决卡顿点）
+    let g_cosT = Math.cos(defaultConfig.tilt);
+    let g_sinT = Math.sin(defaultConfig.tilt);
+
+    // 高性能 3D 转 2D 投影
+    function project(x, y, z, outProj) {
+        // 使用预计算的三角函数
+        const tiltedY = y * g_cosT - z * g_sinT;
+        const tiltedZ = y * g_sinT + z * g_cosT;
+        
+        // 深度计算
+        const depth = config.perspective - tiltedZ;
+        
+        // 【核心卡顿修复1】降低近截面裁剪距离，防止物体突兀消失，增加深渊沉浸感
+        if (depth < 10) { outProj.visible = false; return outProj; } 
+        
+        // 【核心卡顿修复2】严格钳制(Clamp)最大缩放比例，杜绝数十万像素宽度的巨型图形绘制
+        let scale = config.perspective / depth;
+        scale = Math.min(scale, 3.5); 
+        
+        outProj.x = cx + x * scale;
+        outProj.y = cy + tiltedY * scale;
+        outProj.scale = scale;
+        outProj.depth = depth;
+        outProj.visible = true;
+        return outProj;
+    }
+
+    function getVortexPhysics(x, y, z) {
+        const r = Math.sqrt(x*x + y*y);
+        const safeR = Math.max(r, 5); // 避免中心奇点
+        
+        // 基础流速
+        let vAngle = (0.015 + 8 / safeR) * config.flowSpeed;
+        let vPull = 0.6 * config.flowSpeed;
+        let targetZ = 0;
+        
+        // 黑洞引力范围判定
+        if (safeR < config.coreRadius) {
+            // 越靠近中心 intense 越趋近于 1
+            const intense = Math.pow(1 - (safeR / config.coreRadius), 2);
+            // 切向转速极度爆发
+            vAngle *= (1 + intense * config.centerSpeed); 
+            // 向心吸力增强
+            vPull *= (1 + intense * (config.centerSpeed * 0.5));
+            // 深渊下坠
+            targetZ = -1500 * intense; 
+        } else {
+            // 外围水面微波
+            targetZ = Math.sin(safeR * 0.03 + performance.now() * 0.002) * 4; 
+        }
+        return { vAngle, vPull, targetZ };
+    }
+
+    
+    class CharParticle {
+        constructor(id) {
+            this.id = id;
+            // 优雅的衬线字体
+            this.chars = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
+            this.proj = { x:0, y:0, scale:1, depth:0, visible:false };
+            this.partnerId = Math.random() < 0.2 ? Math.floor(Math.random() * config.charCount) : null;
+            this.reset(true);
+        }
+        reset(initial) {
+            // 优化分布：通过多重正弦波产生不均匀的“星系悬臂”聚集感
+            const arms = 4; // 4条主要旋臂
+            const arm = Math.floor(Math.random() * arms);
+            const rNorm = initial ? Math.random() : 1.0;
+            // 使得分布呈波浪形，部分区域密集，部分区域稀疏
+            const r = (rNorm + Math.sin(rNorm * Math.PI * 6) * 0.15) * width * 1.5; 
+            
+            // 基础角度对齐到旋臂
+            let angle = (arm * Math.PI * 2 / arms);
+            // 螺旋扭曲变形
+            angle += r * 0.004;
+            // 随机散射扩散（距离中心越远越散开）
+            const spread = 0.4 + (r / width) * 1.2;
+            angle += (Math.random() - 0.5) * spread;
+
+            this.x = r * Math.cos(angle);
+            this.y = r * Math.sin(angle);
+            this.z = 0;
+            this.char = this.chars[Math.floor(Math.random() * this.chars.length)];
+            // 大小根据UI配置随机浮动
+            this.sizeMod = 0.8 + Math.random() * 0.4; 
+        }
+        update(dt) {
+            const r = Math.sqrt(this.x*this.x + this.y*this.y);
+            const angle = Math.atan2(this.y, this.x);
+            const phys = getVortexPhysics(this.x, this.y, this.z);
+            
+            // 物理平滑移动
+            this.z += (phys.targetZ - this.z) * 0.1 * dt;
+            const newR = Math.max(0, r - phys.vPull * dt);
+            const newAngle = angle + phys.vAngle * dt;
+            
+            this.x = newR * Math.cos(newAngle);
+            this.y = newR * Math.sin(newAngle);
+            
+            // 被吸入深处后重置
+            if (this.z < -800 || newR < 2) this.reset(false);
+            
+            project(this.x, this.y, this.z, this.proj);
+        }
+        draw() {
+            if (!this.proj.visible) return;
+            const p = this.proj;
+            // 坠入深渊渐隐，增加梦幻感
+            const alpha = Math.max(0.01, 1 - Math.abs(this.z) / 500); 
+            
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = config.charColor;
+            
+            // 【核心性能优化】彻底抛弃每帧修改 ctx.font，改为使用 GPU 加速的 ctx.scale 矩阵变换
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            const scaleVal = (config.charSize * this.sizeMod * p.scale) / 40; // 40为全局渲染基准字体大小
+            ctx.scale(scaleVal, scaleVal);
+            ctx.fillText(this.char, 0, 0);
+            ctx.restore();
+
+            // 藕丝弹力连接 (极致精简为直线，大幅降低 CPU 负担)
+            if (this.partnerId !== null && charPool[this.partnerId]) {
+                const partner = charPool[this.partnerId];
+                if (partner.proj.visible) {
+                    const dx = partner.proj.x - p.x;
+                    const dy = partner.proj.y - p.y;
+                    const distSq = dx*dx + dy*dy;
+                    if (distSq > 100 && distSq < 8000) { // 仅在中等距离连接
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        // 恢复平滑的贝塞尔曲线，重现“藕丝”的梦幻连线质感
+                        const midX = (p.x + partner.proj.x) / 2;
+                        const midY = (p.y + partner.proj.y) / 2 - 20; 
+                        ctx.quadraticCurveTo(midX, midY, partner.proj.x, partner.proj.y);
+                        ctx.strokeStyle = config.charColor + '60'; // 带透明度的颜色
+                        ctx.lineWidth = 0.8 * p.scale;
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    class ThrownObject {
+        constructor(sx, sy) {
+            // 纵深抛射逻辑：屏幕 2D 点逆算为 3D 水面点上方
+            const relX = sx - cx;
+            const relY = sy - cy;
+            const cosT = Math.cos(config.tilt);
+            
+            // 目标落在水面的 X, Y
+            this.x = relX / cosT * 1.5;
+            this.y = relY / cosT * 1.5;
+            this.z = 1200; // 极高处，近大远小
+            this.vz = -80; // 砸向深处初速度
+            
+            this.shape = config.objShape;
+            this.color = config.objColor;
+            this.rgb = hexToRgb(this.color);
+            this.state = 'falling';
+            this.proj = { x:0, y:0, scale:1, depth:0, visible:false };
+            this.trail = [];
+            this.maxTrail = 35; // 增加采样点上限以确保平滑
+            this.scaleAnim = 1.0; // 形变动画因子
+            this.rotAngle = 0; // 自转
+        }
+        update(dt) {
+            if (this.state === 'falling') {
+                this.vz -= 3.0 * dt; // 重力加速度
+                this.z += this.vz * dt;
+                
+                if (this.z <= 0) {
+                    this.z = 0;
+                    this.state = 'water';
+                    this.scaleAnim = 0.3; // 入水瞬间极度挤压形变
+                    ripplePool.push(new WaterRipple(this.x, this.y)); // 激起涟漪
+                }
+            } else {
+                // 恢复形变 (弹性动画)
+                this.scaleAnim += (1.0 - this.scaleAnim) * 0.15 * dt; 
+                this.rotAngle += 0.05 * dt; // 自身缓缓旋转
+                
+                const r = Math.sqrt(this.x*this.x + this.y*this.y);
+                const angle = Math.atan2(this.y, this.x);
+                const phys = getVortexPhysics(this.x, this.y, this.z);
+                
+                this.z += (phys.targetZ - this.z) * 0.15 * dt;
+                const newR = Math.max(0, r - phys.vPull * dt);
+                const newAngle = angle + phys.vAngle * dt;
+                
+                this.x = newR * Math.cos(newAngle);
+                this.y = newR * Math.sin(newAngle);
+                
+                if (this.z < -1000 || newR < 1) this.gone = true;
+                
+                // 优化轨迹逻辑：取消随机跳帧，每帧严格记录采样点，保证贝塞尔曲线极为平滑
+                this.trail.push({x: this.x, y: this.y, z: this.z});
+                if (this.trail.length > this.maxTrail) this.trail.shift();
+            }
+            project(this.x, this.y, this.z, this.proj);
+        }
+        draw() {
+            if (!this.proj.visible) return;
+            const p = this.proj;
+            const alpha = Math.max(0, 1 - Math.abs(this.z) / 800); // 坠落深处渐隐
+            ctx.globalAlpha = alpha;
+
+            // 1. 发光层 (Alpha 堆叠，替代极慢的 shadowBlur)
+            const drawSize = config.objSize * p.scale * (this.state === 'falling' ? 1.0 : this.scaleAnim); 
+            
+            // 恢复核心辉光效果，增加梦幻的光影感
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.beginPath();
+            ctx.arc(0, 0, drawSize * 1.8, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(0, 0, drawSize * 0.5, 0, 0, drawSize * 1.8);
+            gradient.addColorStop(0, `rgba(${this.rgb}, 0.8)`);
+            gradient.addColorStop(1, `rgba(${this.rgb}, 0)`);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.restore();
+
+            // 2. 实体绘制
+            ctx.fillStyle = this.color;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(this.rotAngle);
+            
+            // 补充投掷物核心形状渲染，同样使用 GPU 缩放代替修改字体
+            if (this.shape === 'circle') {
+                ctx.beginPath(); ctx.arc(0, 0, drawSize * 0.8, 0, Math.PI*2); ctx.fill();
+            } else if (this.shape === 'star') {
+                const s = (drawSize * 2) / 40;
+                ctx.scale(s, s);
+                ctx.fillText('⭐', 0, 0);
+            } else if (this.shape === 'heart') {
+                const s = (drawSize * 2) / 40;
+                ctx.scale(s, s);
+                ctx.fillText('❤️', 0, 0);
+            } else if (this.shape === 'custom' && customImage.src) {
+            // 3. 极简物理尾迹 (恢复平滑重构)
+            if (this.trail.length > 2 && this.state === 'water') {
+                ctx.beginPath();
+                let tp0 = {x:0, y:0, scale:1, depth:0, visible:false};
+                project(this.trail[0].x, this.trail[0].y, this.trail[0].z, tp0);
+                
+                if(tp0.visible) {
+                    ctx.moveTo(tp0.x, tp0.y);
+                    
+                    // 恢复贝塞尔平滑计算，让水面拖尾更有流体感
+                    for (let i = 1; i < this.trail.length - 1; i++) {
+                        let curr = {x:0, y:0, scale:1, depth:0, visible:false};
+                        let next = {x:0, y:0, scale:1, depth:0, visible:false};
+                        project(this.trail[i].x, this.trail[i].y, this.trail[i].z, curr);
+                        project(this.trail[i+1].x, this.trail[i+1].y, this.trail[i+1].z, next);
+                        if (curr.visible && next.visible) {
+                            const xc = (curr.x + next.x) / 2;
+                            const yc = (curr.y + next.y) / 2;
+                            ctx.quadraticCurveTo(curr.x, curr.y, xc, yc);
+                        }
+                    }
+                }
+                
+                ctx.strokeStyle = `rgba(${this.rgb}, 0.7)`;
+                ctx.lineWidth = 2.5 * p.scale;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    // 优雅的多重涟漪
+    class WaterRipple {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.z = 0;
+            this.radius = 1;
+            this.alpha = 1.0;
+            this.proj = {x:0, y:0, scale:1, depth:0, visible:false};
+        }
+        update(dt) {
+            this.radius += 4 * dt;
+            this.alpha -= 0.03 * dt;
+            if (this.alpha <= 0) this.gone = true;
+            project(this.x, this.y, this.z, this.proj);
+        }
+        draw() {
+            if (!this.proj.visible || this.gone) return;
+            const tiltCos = Math.cos(config.tilt);
+            ctx.beginPath();
+            ctx.ellipse(this.proj.x, this.proj.y, this.radius * this.proj.scale, this.radius * this.proj.scale * tiltCos, 0, 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(180, 180, 190, ${this.alpha})`;
+            ctx.lineWidth = 2 * this.proj.scale;
+            ctx.stroke();
+            
+            // 第二层涟漪
+            ctx.beginPath();
+            ctx.ellipse(this.proj.x, this.proj.y, this.radius * 0.6 * this.proj.scale, this.radius * 0.6 * this.proj.scale * tiltCos, 0, 0, Math.PI*2);
+            ctx.strokeStyle = `rgba(200, 200, 210, ${this.alpha * 0.5})`;
+            ctx.lineWidth = 1 * this.proj.scale;
+            ctx.stroke();
+        }
+    }
+
+    // 雨滴落水后不消失，转化为漩涡流体
+    class RainParticle {
+        constructor() {
+            this.x = (Math.random() - 0.5) * width * 1.8;
+            this.y = (Math.random() - 0.5) * height * 1.8;
+            this.z = 800 + Math.random() * 400; // 高空
+            this.vz = -30 - Math.random() * 20;
+            this.icon = ['✨', '🌛', '🌞'][Math.floor(Math.random() * 3)];
+            this.baseSize = 15 + Math.random() * 25; // 随机大中小的雨滴
+            this.proj = {x:0, y:0, scale:1, depth:0, visible:false};
+            this.state = 'falling';
+            this.rotAngle = 0;
+        }
+        update(dt) {
+            if (this.state === 'falling') {
+                this.z += this.vz * dt;
+                if (this.z <= 0) {
+                    this.z = 0;
+                    this.state = 'water';
+                    ripplePool.push(new WaterRipple(this.x, this.y));
+                }
+            } else {
+                // 落水后物理逻辑，与 thrownObject 相同
+                this.rotAngle += 0.03 * dt;
+                const r = Math.sqrt(this.x*this.x + this.y*this.y);
+                const angle = Math.atan2(this.y, this.x);
+                const phys = getVortexPhysics(this.x, this.y, this.z);
+                
+                this.z += (phys.targetZ - this.z) * 0.15 * dt;
+                const newR = Math.max(0, r - phys.vPull * dt);
+                const newAngle = angle + phys.vAngle * dt;
+                
+                this.x = newR * Math.cos(newAngle);
+                this.y = newR * Math.sin(newAngle);
+                
+                if (this.z < -1000 || newR < 1) this.gone = true;
+            }
+            project(this.x, this.y, this.z, this.proj);
+        }
+        draw() {
+            if (!this.proj.visible) return;
+            // 仅在落入深渊时进行透明度渐隐，其余时间完全不透明
+            const alpha = Math.max(0, 1 - Math.abs(this.z) / 800);
+            ctx.globalAlpha = alpha;
+            
+            ctx.save();
+            ctx.translate(this.proj.x, this.proj.y);
+            if (this.state === 'water') ctx.rotate(this.rotAngle);
+            
+            // 【核心性能优化】矩阵缩放代替频繁修改 ctx.font
+            const scaleVal = (this.baseSize * this.proj.scale) / 40;
+            ctx.scale(scaleVal, scaleVal);
+            ctx.fillText(this.icon, 0, 0);
+            
+            ctx.restore();
+            ctx.globalAlpha = 1.0;
+        }
+    }
+
+    
+    function resize() {
+        // 根据 3:4 容器限制 Canvas 分辨率，而非全局屏幕
+        const wrapper = document.getElementById('canvasWrapper');
+        width = canvas.width = wrapper.clientWidth;
+        height = canvas.height = wrapper.clientHeight;
+        cx = width / 2; cy = height / 2 + 50;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    }
+    window.addEventListener('resize', resize);
+    
+    // 点击抛出物体 (监听绑定在 canvas 上，使用相对于 Canvas 自身的精准坐标系)
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.clientX - rect.left;
+        const sy = e.clientY - rect.top;
+        objPool.push(new ThrownObject(sx, sy));
+    });
+    canvas.addEventListener('touchstart', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const sx = e.touches[0].clientX - rect.left;
+        const sy = e.touches[0].clientY - rect.top;
+        objPool.push(new ThrownObject(sx, sy));
+    }, {passive: false});
+
+    let lastTime = 0;
+    // 预分配渲染列表内存，避免每帧GC卡顿
+    const renderList = []; 
+
+    function animate(currentTime) {
+        if (!lastTime) lastTime = currentTime;
+        // 计算 DeltaTime 并封顶，防止切后台导致步长无限大引发的物理崩溃跳帧
+        let dt = (currentTime - lastTime) / 16.666;
+        lastTime = currentTime;
+        if (dt > 2.0) dt = 2.0; 
+        
+        // 渲染前统一更新三角函数状态，避免每帧万次计算
+        g_cosT = Math.cos(config.tilt);
+        g_sinT = Math.sin(config.tilt);
+
+        // 绘制背景
+        ctx.fillStyle = config.bgColor;
+        ctx.fillRect(0, 0, width, height);
+
+        // 【核心性能优化】每帧全局仅设置一次字体，随后全部交由 ctx.scale 处理，告别字符串拼接和文字引擎重绘卡顿
+        ctx.font = '40px "Times New Roman", Arial, sans-serif';
+
+        renderList.length = 0; 
+
+        // 1. 水流字符更新
+        for (let i = 0; i < charPool.length; i++) {
+            charPool[i].update(dt);
+            if (charPool[i].proj.visible) renderList.push(charPool[i]);
+        }
+
+        // 2. 抛出的物体更新
+        for (let i = objPool.length - 1; i >= 0; i--) {
+            objPool[i].update(dt);
+            if (objPool[i].gone) {
+                objPool.splice(i, 1);
+            } else if (objPool[i].proj.visible) {
+                renderList.push(objPool[i]);
+            }
+        }
+
+        // 3. 水面涟漪更新
+        for (let i = ripplePool.length - 1; i >= 0; i--) {
+            ripplePool[i].update(dt);
+            if (ripplePool[i].gone) {
+                ripplePool.splice(i, 1);
+            } else if (ripplePool[i].proj.visible) {
+                renderList.push(ripplePool[i]);
+            }
+        }
+
+        // 4. 流光雨更新
+        if (isRaining) {
+            if (performance.now() > rainEndTime) isRaining = false;
+            else if (Math.random() < 0.4 * dt) rainPool.push(new RainParticle()); // 随时间生成雨滴
+        }
+        for (let i = rainPool.length - 1; i >= 0; i--) {
+            rainPool[i].update(dt);
+            if (rainPool[i].gone) {
+                rainPool.splice(i, 1);
+            } else if (rainPool[i].proj.visible) {
+                renderList.push(rainPool[i]);
+            }
+        }
+
+        // 极速深度排序 (仅排序屏幕内可见物体)
+        renderList.sort((a, b) => b.proj.depth - a.proj.depth);
+
+        // 统一绘制，按深度层次从后往前画
+        for (let i = 0; i < renderList.length; i++) {
+            renderList[i].draw();
         }
 
         requestAnimationFrame(animate);
     }
 
-    // 启动
-    resizeCanvas();
-    updateSettings();
+    // 初始启动
+    resize();
+    resetAll();
     requestAnimationFrame(animate);
 
 </script>
